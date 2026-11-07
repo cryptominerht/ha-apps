@@ -820,6 +820,10 @@ def build_app(ctl: Controller) -> Flask:
             threading.Thread(target=ctl.unlock, args=("parent PIN",), daemon=True).start()
         elif act == "lock":
             threading.Thread(target=ctl.lock, daemon=True).start()
+        elif act == "test":
+            log.info("Parent page: test - opening the quiz page on the TV (no lock, no block)")
+            threading.Thread(target=ctl.tv.open_browser, args=(ctl.cfg["quiz_url"],),
+                             daemon=True).start()
         if act:
             time.sleep(1)
         cats, wrong = results_summary(ctl.cfg)
@@ -844,7 +848,10 @@ TV {'paired' if ctl.tv.paired else '<span class=err>not paired yet</span>'}</p>
 TV IP {e(ctl.tv.host)} · last quiz check-in:
 {e(ctl.last_status_from[0]) + ', ' + str(int(time.time() - ctl.last_status_from[1])) + ' s ago' if ctl.last_status_from[1] else 'never'}</small></p>
 <form method=post><input type=hidden name=pin value="{pin}">
-<button name=do value=unlock>Unlock now</button><button name=do value=lock>Quiz now</button></form>
+<button name=do value=unlock>Unlock now</button><button name=do value=lock>Quiz now</button>
+<button name=do value=test>Test: show quiz page on TV</button></form>
+<p><small>Test opens the quiz page in the TV browser without locking or blocking internet.
+Within ~10 s the TV should show it, and "last quiz check-in" below should name the TV.</small></p>
 {f'<h3 class=err>Question file problems</h3><ul class=err>{er}</ul>' if er else ''}
 <h3>Results by category</h3><table><tr><th>Category</th><th>Answered</th><th>Correct</th></tr>{rows}</table>
 <h3>Recent wrong answers</h3><ul>{wr}</ul>"""

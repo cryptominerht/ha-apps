@@ -1,3 +1,6 @@
+## 1.1.4
+- Parent page: "Test: show quiz page on TV" button for troubleshooting.
+
 ## 1.1.3
 - TVs that don't provide an app list (timeout warning) are now checked app by app; the log shows which streaming apps will be closed while locked.
 
