@@ -146,27 +146,47 @@ class TV:
     def key(self, k: str):
         self._do(f"key {k}", lambda tv: tv.send_key(k))
 
-    BROWSER = "org.tizen.browser"
+    # 2020+ TVs: "Internet" app 3202010022079 (org.tizen.browser is only an alias).
+    # These TVs ignore the URL in a launch request and open the browser's homepage
+    # or last page instead - so the quiz URL must be set as the browser homepage.
+    BROWSER_IDS = ["3202010022079", "org.tizen.browser"]
+    _browser_id = None
+
+    def browser_id(self) -> str:
+        if self._browser_id:
+            return self._browser_id
+        for bid in self.BROWSER_IDS:
+            try:
+                st = self._ws(timeout=3).rest_app_status(bid)
+            except Exception:  # noqa: BLE001
+                continue
+            if "running" in st or st.get("id"):
+                self._browser_id = bid
+                log.info("TV browser app ID: %s", bid)
+                return bid
+        return "org.tizen.browser"
 
     def open_browser(self, url: str):
-        # If the browser is already running (e.g. he was watching video in it),
-        # a launch request just brings the old tab back instead of loading the
-        # quiz. So close it first, then open it fresh on the quiz page.
-        if not self.dry_run:
-            ws = self._ws(timeout=3)
+        if self.dry_run:
+            log.info("[dry-run] TV browser %s", url)
+            return
+        bid = self.browser_id()
+        # If the browser is already running it just comes back to its old page,
+        # so close it first and start it fresh (newer TVs then show the homepage).
+        ws = self._ws(timeout=3)
+        try:
+            running = bool(ws.rest_app_status(bid).get("running"))
+        except Exception:  # noqa: BLE001
+            running = None
+        if running is not False:
             try:
-                running = bool(ws.rest_app_status(self.BROWSER).get("running"))
-            except Exception:  # noqa: BLE001  some models don't report it
-                running = None
-            if running is not False:
-                try:
-                    ws.rest_app_close(self.BROWSER)
-                    if running:
-                        log.info("Browser was already open - closed it so the quiz opens fresh")
-                    time.sleep(2)
-                except Exception as e:  # noqa: BLE001
-                    log.debug("browser close: %s", e)
-        self._do(f"browser {url}", lambda tv: tv.open_browser(url))
+                ws.rest_app_close(bid)
+                if running:
+                    log.info("Browser was already open - closed it so it starts fresh")
+                time.sleep(2)
+            except Exception as e:  # noqa: BLE001
+                log.debug("browser close: %s", e)
+        self._do(f"browser {url}", lambda tv: tv.run_app(bid, "NATIVE_LAUNCH", url))
 
     def run_app(self, app_id: str):
         self._do(f"run {app_id}", lambda tv: tv.run_app(app_id))
@@ -607,8 +627,10 @@ class Controller:
         log.warning("The TV has not shown the quiz page after 3 tries. Retrying every 2 min.")
         log.warning("  Quiz address: %s", url)
         if not self.page_loads:
-            log.warning("  Nothing has loaded that address yet. Check on the TV whether the "
-                        "Internet browser opened, and open %s on your phone to test it.", url)
+            log.warning("  Nothing has loaded that address yet. Newer Samsung TVs (2020+) open "
+                        "the browser on its HOMEPAGE and ignore the address - set the TV "
+                        "browser's homepage to %s (see the Documentation tab). Also check "
+                        "that address opens on your phone.", url)
         elif not tv_loaded:
             log.warning("  Other devices loaded it (%s) but never the TV: either the browser "
                         "isn't opening, or the TV can't reach this address (VLAN/firewall).",

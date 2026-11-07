@@ -15,6 +15,18 @@ answers in a row unlocks it.
 3. Turn on the TV, then click **Start** on the **Info** tab. Press **Allow** when the TV asks
    to pair with *KidLock*. The **Log** tab then shows `Paired with TV`.
 
+### Set the TV browser's homepage (TVs from 2020 onwards)
+Newer Samsung TVs open their browser on its **homepage** and ignore the address the app
+sends. So the quiz page has to be the homepage:
+1. On the TV, open the **Internet** app.
+2. Go to **Settings** (the gear or ⋮ menu) → **General** → **Set Homepage** → **Custom URL**
+   (wording varies a little).
+3. Enter the quiz address shown in the app's log, e.g. `http://192.168.0.183:5000/`.
+4. Check that the browser opens on the quiz page. When the TV isn't locked, the page shows
+   "Well done / TV is unlocked".
+
+Then use **Test: show quiz page on TV** on the parent page to confirm.
+
 The quiz page address is worked out automatically from this HA box's IP.
 
 ### Advanced settings and questions (files)
