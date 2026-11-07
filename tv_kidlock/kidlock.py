@@ -186,7 +186,27 @@ class TV:
                 time.sleep(2)
             except Exception as e:  # noqa: BLE001
                 log.debug("browser close: %s", e)
-        self._do(f"browser {url}", lambda tv: tv.run_app(bid, "NATIVE_LAUNCH", url))
+        if bid == "org.tizen.browser":
+            # Older TVs: WebSocket launch with the URL works
+            self._do(f"browser {url}", lambda tv: tv.run_app(bid, "NATIVE_LAUNCH", url))
+            return
+        # 2020+ TVs: the WebSocket browser launch is ignored, but a REST launch works
+        # (opens on the homepage, which must be the quiz page).
+        try:
+            r = self._ws(timeout=4).rest_app_run(bid)
+            log.info("Browser launch (REST) -> %s", r)
+        except Exception as e:  # noqa: BLE001
+            log.warning("Browser launch (REST) failed: %r - trying WebSocket", e)
+            self._do("browser deep link", lambda tv: tv.run_app(bid, "DEEP_LINK", url))
+        time.sleep(4)
+        try:
+            st = self._ws(timeout=4).rest_app_status(bid)
+            log.info("Browser on screen: %s (running %s)", st.get("visible"), st.get("running"))
+            if not st.get("visible"):
+                log.info("Browser didn't come up - retrying via WebSocket")
+                self._do("browser native", lambda tv: tv.run_app(bid, "NATIVE_LAUNCH", url))
+        except Exception:  # noqa: BLE001
+            pass
 
     def run_app(self, app_id: str):
         self._do(f"run {app_id}", lambda tv: tv.run_app(app_id))

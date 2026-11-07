@@ -1,3 +1,6 @@
+## 1.2.2
+- 2020+ TVs: launch the browser over REST (the WebSocket launch is ignored); log whether it came on screen.
+
 ## 1.2.1
 - Parent page: "Run TV diagnostics" button (device info, app status, app-launch and key tests).
 
