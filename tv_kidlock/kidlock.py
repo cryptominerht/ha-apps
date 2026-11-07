@@ -444,6 +444,9 @@ class Controller:
         self.s = self._load()
         self.last_heartbeat = 0.0
         self.last_browser_open = 0.0
+        self.reopens_unseen = 0          # browser opens with no page load since
+        self.page_loads: dict = {}       # client IP -> last time it loaded "/"
+        self.last_status_from: tuple = ("", 0.0)
         self.apps: dict = cfg.get("block_apps", {})
         self.bank = QuestionBank(cfg)
         self.bank.reload_if_changed()
@@ -500,7 +503,17 @@ class Controller:
     def _show_quiz(self):
         self.last_browser_open = time.time()
         self.last_heartbeat = time.time()  # grace period while the browser loads
+        log.info("Opening quiz on TV: %s", self.cfg["quiz_url"])
         self.tv.open_browser(self.cfg["quiz_url"])
+
+    def page_loaded(self, ip: str):
+        first = ip not in self.page_loads
+        self.page_loads[ip] = time.time()
+        self.reopens_unseen = 0
+        log.info("Quiz page loaded by %s%s", ip,
+                 " (the TV)" if ip == self.tv.host else "")
+        if first and ip != self.tv.host:
+            log.info("(That isn't the TV's IP %s - fine if it's your phone/PC)", self.tv.host)
 
     # ------------------------------------------------------------ loop ---
     def run(self):
@@ -556,13 +569,34 @@ class Controller:
                 self.tv.close_app(app_id)
                 self._show_quiz()
                 return
-        # Quiz page stopped polling (browser closed / HDMI / live TV) -> reshow
+        # Quiz page stopped polling (browser closed / HDMI / live TV) -> reshow.
+        # If the TV never loads the page, back off instead of reopening forever.
+        retry = 15 if self.reopens_unseen < 3 else 120
         if (now - self.last_heartbeat > self.cfg.get("heartbeat_timeout", 20)
-                and now - self.last_browser_open > 15 and self.tv.is_on()):
-            log.info("Quiz not on screen - reopening")
+                and now - self.last_browser_open > retry and self.tv.is_on()):
+            self.reopens_unseen += 1
+            log.info("Quiz not on screen - reopening (attempt %d)", self.reopens_unseen)
+            if self.reopens_unseen == 3:
+                self._diagnose()
             self.tv.key("KEY_PAUSE")
             self._show_quiz()
         self._publish("locked")
+
+    def _diagnose(self):
+        url = self.cfg["quiz_url"]
+        tv_loaded = self.tv.host in self.page_loads
+        log.warning("The TV has not shown the quiz page after 3 tries. Retrying every 2 min.")
+        log.warning("  Quiz address: %s", url)
+        if not self.page_loads:
+            log.warning("  Nothing has loaded that address yet. Check on the TV whether the "
+                        "Internet browser opened, and open %s on your phone to test it.", url)
+        elif not tv_loaded:
+            log.warning("  Other devices loaded it (%s) but never the TV: either the browser "
+                        "isn't opening, or the TV can't reach this address (VLAN/firewall).",
+                        ", ".join(self.page_loads))
+        else:
+            log.warning("  The TV loaded the page but it stopped reporting back - "
+                        "possibly the browser closed or the page script isn't running.")
 
     def _publish(self, state: str):
         self.ha.publish(state, {
@@ -573,8 +607,10 @@ class Controller:
         })
 
     # ------------------------------------------------------------ quiz ---
-    def status(self) -> dict:
+    def status(self, ip: str = "") -> dict:
         self.last_heartbeat = time.time()
+        self.reopens_unseen = 0
+        self.last_status_from = (ip, self.last_heartbeat)
         with self.lk:
             q = self.cfg.get("quiz", {})
             return {
@@ -682,7 +718,10 @@ def build_app(ctl: Controller) -> Flask:
 
     @app.get("/")
     def index():
-        return send_from_directory(BASE, "quiz.html")
+        ctl.page_loaded(request.remote_addr or "?")
+        resp = send_from_directory(BASE, "quiz.html")
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
 
     @app.get("/img/<path:name>")
     def img(name):
@@ -690,7 +729,9 @@ def build_app(ctl: Controller) -> Flask:
 
     @app.get("/status")
     def status():
-        return jsonify(ctl.status())
+        resp = jsonify(ctl.status(request.remote_addr or ""))
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
 
     @app.post("/answer")
     def answer():
@@ -735,6 +776,9 @@ button{{font-size:1em;padding:.5em 1em;margin-right:.5em}}li{{margin:.6em 0}}.er
 <p><b>{'LOCKED - quiz on screen' if s.locked else 'Unlocked'}</b> ·
 watched {s.watched_s / 60:.0f} of {ctl.limit_s / 60:.0f} min ·
 TV {'paired' if ctl.tv.paired else '<span class=err>not paired yet</span>'}</p>
+<p><small>Quiz address: <a href="{e(ctl.cfg['quiz_url'])}">{e(ctl.cfg['quiz_url'])}</a> ·
+TV IP {e(ctl.tv.host)} · last quiz check-in:
+{e(ctl.last_status_from[0]) + ', ' + str(int(time.time() - ctl.last_status_from[1])) + ' s ago' if ctl.last_status_from[1] else 'never'}</small></p>
 <form method=post><input type=hidden name=pin value="{pin}">
 <button name=do value=unlock>Unlock now</button><button name=do value=lock>Quiz now</button></form>
 {f'<h3 class=err>Question file problems</h3><ul class=err>{er}</ul>' if er else ''}

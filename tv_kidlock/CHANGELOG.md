@@ -1,3 +1,8 @@
+## 1.1.1
+- Logs when the quiz page is loaded and by which device; explains why after 3 failed tries.
+- Backs off to one browser reopen every 2 minutes instead of every ~20 s.
+- Parent page shows the quiz address and the last check-in from the TV.
+
 ## 1.1.0
 - Main settings are now on the app's Configuration tab.
 - Quiz page address is detected automatically.
