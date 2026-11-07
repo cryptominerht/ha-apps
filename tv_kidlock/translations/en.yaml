@@ -1,0 +1,29 @@
+configuration:
+  tv_host:
+    name: TV IP address
+    description: Fixed IP of the Samsung TV, e.g. 192.168.1.50
+  tv_port:
+    name: TV port
+    description: 8002 for 2016 and newer TVs, 8001 for older ones
+  parent_pin:
+    name: Parent PIN
+    description: Opens the parent page at http://<HA IP>:5000/parent
+  internet_block_switch:
+    name: UniFi block switch
+    description: The HA switch for your UniFi "Block TV internet" policy, e.g. switch.block_tv_internet. Leave empty to skip internet blocking.
+  block_when:
+    name: Switch state that means blocked
+    description: "on" for UniFi policies and traffic rules
+  watch_minutes:
+    name: Minutes of TV before a quiz
+  correct_to_unlock:
+    name: Correct answers in a row to unlock
+  categories:
+    name: Subjects to ask
+    description: Question file names to use, e.g. maths, thinking, reading. Empty = all.
+  enable_entity:
+    name: Master on/off helper
+    description: Toggle helper that turns the lock off (movie night). Optional.
+  quiz_url:
+    name: Quiz page address (advanced)
+    description: Leave empty - it's worked out automatically from HA's IP.

@@ -44,10 +44,52 @@ BASE = Path(__file__).resolve().parent
 def load_config(path: Path) -> dict:
     with open(path) as f:
         cfg = yaml.safe_load(f)
+    apply_app_options(cfg)
     d = Path(cfg.get("data_dir") or "data")
     cfg["data_dir"] = str(d if d.is_absolute() else BASE / d)   # relative = next to kidlock.py
     Path(cfg["data_dir"]).mkdir(parents=True, exist_ok=True)
     return cfg
+
+
+def apply_app_options(cfg: dict):
+    """Home Assistant app: settings from the Configuration tab override config.yaml."""
+    f = Path(os.environ.get("APP_OPTIONS", "/data/options.json"))
+    if not f.exists():
+        return
+    try:
+        o = json.loads(f.read_text())
+    except ValueError:
+        return
+    def put(section, key, value):
+        if value in (None, ""):
+            return
+        (cfg.setdefault(section, {}) if section else cfg)[key] = value
+    put("tv", "host", o.get("tv_host"))
+    put("tv", "port", o.get("tv_port"))
+    put(None, "parent_pin", o.get("parent_pin"))
+    put(None, "watch_minutes", o.get("watch_minutes"))
+    put(None, "quiz_url", o.get("quiz_url"))
+    put("home_assistant", "internet_block_switch", o.get("internet_block_switch"))
+    put("home_assistant", "block_when", o.get("block_when"))
+    put("home_assistant", "enable_entity", o.get("enable_entity"))
+    put("quiz", "correct_to_unlock", o.get("correct_to_unlock"))
+    if o.get("categories") is not None:
+        cfg.setdefault("quiz", {})["categories"] = o.get("categories") or []
+    if not o.get("quiz_url") and cfg.get("tv", {}).get("host"):
+        cfg["quiz_url"] = f"http://{local_ip_towards(cfg['tv']['host'])}:{cfg.get('web_port', 5000)}/"
+
+
+def local_ip_towards(host: str) -> str:
+    """This machine's LAN IP on the route to the TV (no packets are sent)."""
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect((host, 9))
+        return s.getsockname()[0]
+    except OSError:
+        return "127.0.0.1"
+    finally:
+        s.close()
 
 
 # ------------------------------------------------------------------- TV -----

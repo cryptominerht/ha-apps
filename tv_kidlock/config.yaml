@@ -1,5 +1,5 @@
 name: TV Kid Lock
-version: "1.0.1"
+version: "1.1.0"
 slug: tv_kidlock
 description: Locks the Samsung TV after a set watch time until a quiz is answered
 arch:
@@ -14,3 +14,25 @@ map:
   - type: addon_config      # settings, questions and results live here
     read_only: false
 webui: "http://[HOST]:[PORT:5000]/parent"
+options:
+  tv_host: ""
+  tv_port: 8002
+  parent_pin: ""
+  internet_block_switch: ""
+  block_when: "on"
+  watch_minutes: 10
+  correct_to_unlock: 2
+  categories: []
+  enable_entity: "input_boolean.tv_kid_lock"
+schema:
+  tv_host: str
+  tv_port: port
+  parent_pin: str
+  internet_block_switch: str?
+  block_when: list(on|off)
+  watch_minutes: int(1,240)
+  correct_to_unlock: int(1,10)
+  categories:
+    - str
+  enable_entity: str?
+  quiz_url: url?
