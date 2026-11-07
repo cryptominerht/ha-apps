@@ -1,3 +1,6 @@
+## 1.1.3
+- TVs that don't provide an app list (timeout warning) are now checked app by app; the log shows which streaming apps will be closed while locked.
+
 ## 1.1.2
 - Fix: if the TV browser was already open (e.g. video playing in it), the quiz never loaded. The browser is now closed first and reopened on the quiz page.
 

@@ -724,11 +724,56 @@ def pair_loop(ctl: "Controller"):
             break
         time.sleep(30)
     if not tv.dry_run:
-        apps = tv._do("app_list", lambda t: t.app_list()) or []
-        if apps:
-            log.info("Installed TV apps (use these IDs in block_apps):")
-            for a in sorted(apps, key=lambda a: a.get("name", "")):
-                log.info("  %-24s %s", a.get("appId"), a.get("name"))
+        check_block_apps(ctl)
+
+
+# Known IDs for common streaming apps (they differ between model years/regions)
+APP_CANDIDATES = {
+    "YouTube": ["111299001912"],
+    "Netflix": ["3201907018807", "11101200001"],
+    "Prime Video": ["3201910019365", "3201512006785"],
+    "Disney+": ["3201901017640"],
+    "Apple TV": ["3201807016597"],
+}
+
+
+def check_block_apps(ctl: "Controller"):
+    """Find which streaming-app IDs exist on this TV, so they can be closed."""
+    tv = ctl.tv
+    try:
+        listed = tv._ws(timeout=8).app_list() or []
+    except Exception:  # noqa: BLE001  many 2020+ models don't answer this
+        listed = []
+    if listed:
+        log.info("Installed TV apps (IDs for block_apps in config.yaml):")
+        for a in sorted(listed, key=lambda a: a.get("name", "")):
+            log.info("  %-24s %s", a.get("appId"), a.get("name"))
+
+    def installed(app_id: str):
+        try:
+            st = tv._ws(timeout=4).rest_app_status(app_id)
+        except Exception:  # noqa: BLE001
+            return None
+        return st.get("name") or st.get("id") or None
+
+    found: dict = {}
+    to_check = dict(ctl.apps)
+    for name, ids in APP_CANDIDATES.items():
+        for i in ids:
+            to_check.setdefault(i, name)
+    for app_id, name in to_check.items():
+        real = installed(app_id)
+        if real:
+            found[app_id] = real if isinstance(real, str) else name
+    if found:
+        ctl.apps = found
+        log.info("Will close these apps while locked: %s",
+                 ", ".join(f"{n} ({i})" for i, n in found.items()))
+    else:
+        log.warning("Couldn't confirm any streaming app IDs on this TV - keeping the ones in "
+                    "config.yaml. The internet block still stops streaming.")
+    for name in sorted(set(APP_CANDIDATES) - {n for n in found.values()}):
+        log.info("  %s: not found on this TV (fine if it isn't installed)", name)
 
 
 # ------------------------------------------------------------------ web -----
