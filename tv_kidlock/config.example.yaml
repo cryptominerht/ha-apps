@@ -1,0 +1,57 @@
+# Copy to config.yaml and edit.
+# (Home Assistant add-on: this file is created for you in addon_configs/local_tv_kidlock)
+
+watch_minutes: 10            # watch time before the quiz
+idle_reset_minutes: 30       # TV off this long -> allowance resets
+poll_seconds: 15             # how often to check the TV is on
+enforce_seconds: 3           # how often to check while locked
+heartbeat_timeout: 20        # quiz page silent this long -> reopen it
+resume_app_on_unlock: true   # relaunch the app he was watching
+dry_run: false               # true = log actions instead of sending them
+
+data_dir: data               # TV pairing token, state, results
+web_port: 5000
+# URL the TV's browser opens: the LAN IP of the machine running this
+# (the HA box for the add-on), with a DHCP reservation so it never changes.
+quiz_url: "http://192.168.1.10:5000/"
+parent_pin: "change-me"      # opens http://<this host>:5000/parent (results, unlock)
+
+tv:
+  host: 192.168.1.50         # TV IP (DHCP reservation in UniFi)
+  port: 8002                 # 2016+ models: 8002 (TLS + token). Older: 8001
+
+home_assistant:
+  # Add-on: leave url and token empty - the add-on uses HA's own API access.
+  # Separate Linux box: your HA URL and a long-lived access token.
+  url: ""                    # e.g. "http://192.168.1.10:8123"
+  token: ""                  # or set environment variable HA_TOKEN
+  # HA switch for a UniFi traffic rule / firewall policy that blocks the TV's
+  # internet (NOT the "block client" switch - that also cuts LAN access).
+  internet_block_switch: switch.block_tv_internet
+  block_when: "on"           # switch state that means "blocked"
+  # Parent master switch; turning it off unlocks immediately and pauses counting
+  enable_entity: input_boolean.tv_kid_lock
+  status_sensor: sensor.tv_kid_lock
+
+quiz:
+  source: bank               # bank = your questions/ folder, generated = arithmetic,
+                             # mixed = both (generated_share sets the arithmetic share)
+  bank_dir: questions        # folder of *.yaml question files (edit while running)
+  categories: []             # e.g. [maths, thinking] to limit; empty = all
+  generated_share: 0.3
+  show_answer_when_wrong: true
+  correct_to_unlock: 2       # correct answers in a row to unlock
+  max_wrong: 3               # wrong answers before a cooldown
+  cooldown_seconds: 30
+  # used for generated questions
+  types: [multiply]          # any of: multiply, add, subtract, divide
+  min: 2
+  max: 9
+
+# Apps closed if they come to the front while locked.
+# IDs vary by region/model year - confirm with: python kidlock.py --list-apps
+block_apps:
+  "111299001912": YouTube
+  "3201907018807": Netflix
+  "3201910019365": Prime Video
+  "3201901017640": Disney+

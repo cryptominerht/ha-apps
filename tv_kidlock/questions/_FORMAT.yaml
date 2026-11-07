@@ -1,0 +1,18 @@
+# Question format reference. Files starting with "_" are still loaded, so this
+# file is a valid, empty list. Copy the examples into maths.yaml etc.
+#
+# - question: Text shown on screen. Use "|" for several lines.
+#   choices: ["A text", "B text", "C text", "D text"]   # 2-8 options, shown as A, B, C...
+#   answer: B                 # letter, or the exact text of the right choice
+#   explanation: Shown after a wrong answer (optional, but it's where he learns)
+#   category: maths           # optional - defaults to the file name
+#   passage: |                # optional - reading text shown above the question
+#     ...
+#   image: shapes-01.png      # optional - file in questions/images/ (diagrams, nets, etc.)
+#   id: maths-001             # optional - keep it if you later edit the question text,
+#                             # so his history for that question is kept
+#
+# Numeric answer (keypad instead of A-D): leave out 'choices', make 'answer' a number.
+# - question: 3 × 4 + 5 = ?
+#   answer: 17
+[]

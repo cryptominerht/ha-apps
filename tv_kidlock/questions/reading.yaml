@@ -1,0 +1,16 @@
+# Reading - use 'passage' for the text, 'question' for what is asked.
+# Several questions can share the same passage.
+
+- passage: |
+    Every autumn, Mrs Okafor saved the seeds from her tallest sunflowers in a paper
+    envelope labelled with the year. Her grandson thought it was a waste of time,
+    since seeds were cheap at the shop. But when the long, dry summer came, the
+    shop-bought seeds wilted early, while Mrs Okafor's sunflowers stood tall.
+  question: Why did Mrs Okafor's sunflowers most likely survive?
+  choices:
+    - She watered them more than her grandson did.
+    - Her seeds came from plants that had already grown well in that garden.
+    - The shop's seeds were past their use-by date.
+    - Her grandson helped her plant them.
+  answer: B
+  explanation: She kept seeds from her best plants, so they suited local conditions. The passage says nothing about watering or old seeds.

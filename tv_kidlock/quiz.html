@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quiz Time</title>
+<style>
+  /* Sized for a TV at 3 m: big type, high contrast, no hover-only states */
+  html, body { margin: 0; height: 100%; background: #10233f; color: #fff;
+    font-family: "Samsung One", "Helvetica Neue", Arial, sans-serif; overflow: hidden; }
+  .screen { display: flex; height: 100%; box-sizing: border-box; padding: 3vw 4vw; gap: 4vw;
+    align-items: center; justify-content: center; }
+  .hidden { display: none !important; }
+  .left { flex: 1 1 55%; max-height: 100%; overflow: hidden; }
+  .right { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 1.5vw; }
+  .top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 1.2vw; }
+  .tag { font-size: 1.6vw; color: #ffd166; letter-spacing: .1em; text-transform: uppercase; }
+  .stars { font-size: 2.4vw; letter-spacing: .4vw; }
+  .passage { font-size: 1.9vw; line-height: 1.45; background: #18304f; border-left: .5vw solid #ffd166;
+    padding: 1.2vw 1.6vw; margin-bottom: 1.4vw; white-space: pre-line; }
+  .qtext { font-size: 2.6vw; line-height: 1.35; white-space: pre-line; margin: 0; }
+  .qtext.big { font-size: 8vw; font-weight: 700; text-align: center; }
+  .qimg { display: block; max-width: 100%; max-height: 35vh; margin: 1.4vw 0; background: #fff;
+    border-radius: .8vw; }
+  .choices { display: flex; flex-direction: column; gap: 1vw; width: 38vw; }
+  .choice { display: flex; align-items: center; gap: 1.2vw; font-size: 2.2vw; text-align: left;
+    padding: 1vw 1.4vw; border-radius: 1vw; border: .3vw solid transparent; background: #1f4b7a;
+    color: #fff; font-family: inherit; }
+  .choice .l { flex: 0 0 auto; width: 3.6vw; height: 3.6vw; line-height: 3.6vw; text-align: center;
+    border-radius: 50%; font-weight: 700; color: #10233f; }
+  .c0 .l { background: #ef476f; } .c1 .l { background: #06d6a0; }
+  .c2 .l { background: #ffd166; } .c3 .l { background: #4cc9f0; }
+  .c4 .l, .c5 .l, .c6 .l, .c7 .l { background: #ccc; }
+  .entry { font-size: 5vw; min-height: 7vw; width: 22vw; text-align: center;
+    border-bottom: .5vw solid #ffd166; }
+  .pad { display: grid; grid-template-columns: repeat(3, 7.5vw); gap: 1vw; }
+  .pad button { height: 7.5vw; font-size: 3.8vw; font-weight: 700; border: 0; border-radius: 1.2vw;
+    background: #1f4b7a; color: #fff; font-family: inherit; }
+  .pad .go { background: #2a9d8f; } .pad .del { background: #6c4675; }
+  .focus { background: #ffd166 !important; color: #10233f !important; border-color: #fff !important;
+    transform: scale(1.05); }
+  button { outline: none; }
+  .msg { font-size: 2vw; min-height: 2.6vw; text-align: center; }
+  .ok { color: #7ae582; } .bad { color: #ff6b6b; }
+  .hint { font-size: 1.4vw; opacity: .6; text-align: center; }
+  .review, .done { text-align: center; max-width: 70vw; }
+  .review h2 { font-size: 4vw; color: #ff6b6b; margin: 0 0 1.5vw; }
+  .review .ans { font-size: 3.2vw; color: #7ae582; margin-bottom: 1.5vw; }
+  .review .exp { font-size: 2.2vw; line-height: 1.45; opacity: .9; }
+  .review .next { margin-top: 3vw; font-size: 2vw; color: #ffd166; }
+  .done .big { font-size: 7vw; } .done p { font-size: 2.6vw; opacity: .85; }
+</style>
+</head>
+<body>
+
+<div id="quiz" class="screen hidden">
+  <div class="left">
+    <div class="top"><span class="tag" id="cat"></span><span class="stars" id="stars"></span></div>
+    <div class="passage hidden" id="passage"></div>
+    <p class="qtext" id="qtext"></p>
+    <img class="qimg hidden" id="qimg" alt="">
+  </div>
+  <div class="right">
+    <div class="choices hidden" id="choices"></div>
+    <div id="numwrap" class="hidden">
+      <div class="entry" id="entry"></div>
+      <div class="pad" id="pad" style="margin-top:1.5vw"></div>
+    </div>
+    <div class="msg" id="msg"></div>
+    <div class="hint" id="hint"></div>
+  </div>
+</div>
+
+<div id="review" class="screen hidden">
+  <div class="review">
+    <h2>Not quite</h2>
+    <div class="ans" id="revAns"></div>
+    <div class="exp" id="revExp"></div>
+    <div class="next">Press OK for the next question</div>
+  </div>
+</div>
+
+<div id="done" class="screen hidden">
+  <div class="done"><div class="big">🎉 Well done!</div><p>TV is unlocked. Enjoy!</p></div>
+</div>
+
+<script>
+// ES5 only - older Tizen browsers are not fully ES6.
+var LETTERS = 'ABCDEFGH';
+var PADKEYS = ['1','2','3','4','5','6','7','8','9','⌫','0','OK'];
+var mode = 'none';            // 'choice' | 'number' | 'review' | 'done'
+var items = [], focus = 0, entry = '', busy = false, cooldown = 0, qid = '', reviewing = false;
+
+function $(id) { return document.getElementById(id); }
+function show(id, on) { var e = $(id); e.className = e.className.replace(/\s*\bhidden\b/g, '') + (on ? '' : ' hidden'); }
+function msg(t, cls) { $('msg').textContent = t || ''; $('msg').className = 'msg ' + (cls || ''); }
+
+function setFocus(i) {
+  if (!items.length) return;
+  for (var j = 0; j < items.length; j++) items[j].className = items[j].className.replace(' focus', '');
+  focus = Math.max(0, Math.min(items.length - 1, i));
+  items[focus].className += ' focus';
+}
+
+function buildChoices(choices) {
+  var box = $('choices'); box.innerHTML = ''; items = [];
+  for (var i = 0; i < choices.length; i++) {
+    var b = document.createElement('button');
+    b.className = 'choice c' + i;
+    b.innerHTML = '<span class="l">' + LETTERS[i] + '</span><span></span>';
+    b.lastChild.textContent = choices[i];
+    (function (idx) { b.onclick = function () { setFocus(idx); pick(LETTERS[idx]); }; })(i);
+    box.appendChild(b); items.push(b);
+  }
+  setFocus(0);
+  $('hint').textContent = 'Up/Down then OK  •  or colour buttons  •  or 1-' + choices.length;
+}
+
+function buildPad() {
+  var pad = $('pad'); pad.innerHTML = ''; items = [];
+  for (var i = 0; i < PADKEYS.length; i++) {
+    var b = document.createElement('button'); b.textContent = PADKEYS[i];
+    if (PADKEYS[i] === 'OK') b.className = 'go';
+    if (PADKEYS[i] === '⌫') b.className = 'del';
+    (function (k, idx) { b.onclick = function () { setFocus(idx); padPress(k); }; })(PADKEYS[i], i);
+    pad.appendChild(b); items.push(b);
+  }
+  setFocus(10);
+  $('hint').textContent = 'Number buttons, or arrows then OK';
+}
+
+function padPress(k) {
+  if (busy || cooldown > 0) return;
+  if (k === '⌫') entry = entry.slice(0, -1);
+  else if (k === 'OK') { if (entry) submit(entry); return; }
+  else if (entry.length < 6) entry += k;
+  $('entry').textContent = entry;
+}
+
+function pick(letter) { if (!busy && cooldown <= 0) submit(letter); }
+
+document.addEventListener('keydown', function (e) {
+  var c = e.keyCode, handled = true;
+  if (mode === 'review') { if (c === 13) { reviewing = false; qid = ''; poll(); } else handled = false; }
+  else if (mode === 'choice') {
+    if (c === 38) setFocus(focus - 1);
+    else if (c === 40) setFocus(focus + 1);
+    else if (c === 13) pick(LETTERS[focus]);
+    else if (c >= 403 && c <= 406 && c - 403 < items.length) pick(LETTERS[c - 403]); // red/green/yellow/blue
+    else if (c >= 49 && c <= 56 && c - 49 < items.length) pick(LETTERS[c - 49]);       // 1..8
+    else if (c >= 65 && c <= 72 && c - 65 < items.length) pick(LETTERS[c - 65]);       // keyboard A..H
+    else handled = false;
+  } else if (mode === 'number') {
+    var row = Math.floor(focus / 3), col = focus % 3;
+    if (c >= 48 && c <= 57) padPress(String(c - 48));
+    else if (c >= 96 && c <= 105) padPress(String(c - 96));
+    else if (c === 37 && col > 0) setFocus(focus - 1);
+    else if (c === 39 && col < 2) setFocus(focus + 1);
+    else if (c === 38 && row > 0) setFocus(focus - 3);
+    else if (c === 40 && row < 3) setFocus(focus + 3);
+    else if (c === 13) padPress(PADKEYS[focus]);
+    else if (c === 8) padPress('⌫');
+    else handled = false;
+  } else handled = false;
+  if (handled) e.preventDefault();
+});
+
+function xhr(method, url, body, cb) {
+  var r = new XMLHttpRequest();
+  r.open(method, url, true);
+  r.setRequestHeader('Content-Type', 'application/json');
+  r.onreadystatechange = function () {
+    if (r.readyState === 4) { try { cb(JSON.parse(r.responseText)); } catch (e) { cb(null); } }
+  };
+  r.send(body ? JSON.stringify(body) : null);
+}
+
+function screen(name) {
+  show('quiz', name === 'quiz'); show('review', name === 'review'); show('done', name === 'done');
+}
+
+function render(s) {
+  if (!s || reviewing) return;
+  cooldown = s.cooldown;
+  if (!s.locked) { mode = 'done'; screen('done'); return; }
+  screen('quiz');
+  var q = s.q || {};
+  if (s.qid !== qid) {            // new question: rebuild
+    qid = s.qid; entry = ''; $('entry').textContent = ''; msg('');
+    $('cat').textContent = q.category || '';
+    $('qtext').textContent = q.question || '';
+    $('qtext').className = 'qtext' + (q.big ? ' big' : '');
+    $('passage').textContent = q.passage || ''; show('passage', !!q.passage);
+    if (q.image) { $('qimg').src = 'img/' + encodeURIComponent(q.image); show('qimg', true); }
+    else show('qimg', false);
+    if (q.kind === 'choice') { mode = 'choice'; show('choices', true); show('numwrap', false); buildChoices(q.choices); }
+    else { mode = 'number'; show('choices', false); show('numwrap', true); buildPad(); }
+  }
+  var st = '';
+  for (var i = 0; i < s.needed; i++) st += i < s.streak ? '⭐' : '☆';
+  $('stars').textContent = st;
+  if (cooldown > 0) msg('Too many tries - wait ' + cooldown + ' s and think carefully', 'bad');
+  else if ($('msg').className.indexOf('bad') > -1 && $('msg').textContent.indexOf('wait') > -1) msg('');
+}
+
+function submit(value) {
+  busy = true;
+  xhr('POST', 'answer', { answer: value }, function (r) {
+    busy = false;
+    if (!r) { msg('Connection problem - try again', 'bad'); return; }
+    if (r.result === 'correct') msg('Correct! ⭐', 'ok');
+    else if (r.result === 'wrong' && r.correct) {
+      reviewing = true; mode = 'review'; screen('review');
+      $('revAns').textContent = 'The answer is ' + r.correct;
+      $('revExp').textContent = r.explanation || '';
+      return;
+    } else if (r.result === 'wrong') msg('Not quite - here is a new one', 'bad');
+    else if (r.result === 'cooldown') msg('Wait a moment...', 'bad');
+    poll();
+  });
+}
+
+// Polling doubles as the heartbeat that tells the server the quiz is on screen.
+function poll() { xhr('GET', 'status', null, render); }
+poll();
+setInterval(function () { if (!reviewing) poll(); else xhr('GET', 'status', null, function () {}); }, 3000);
+</script>
+</body>
+</html>

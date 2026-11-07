@@ -1,0 +1,27 @@
+# Mathematical Reasoning
+# Format: see _FORMAT.yaml. The file name becomes the category unless you set one.
+
+- question: Pencils cost 3 for $1.20. How much do 10 pencils cost?
+  choices: ["$3.60", "$4.00", "$4.20", "$12.00"]
+  answer: B
+  explanation: One pencil costs $1.20 ÷ 3 = $0.40, so 10 pencils cost $4.00.
+
+- question: The average of four numbers is 15. Three of them are 12, 18 and 20. What is the fourth number?
+  choices: ["10", "12", "15", "25"]
+  answer: A
+  explanation: Four numbers averaging 15 add up to 60. 12 + 18 + 20 = 50, so the fourth is 10.
+
+- question: A rectangle has a perimeter of 36 cm. Its length is twice its width. What is its area?
+  choices: ["54 cm²", "72 cm²", "81 cm²", "96 cm²"]
+  answer: B
+  explanation: Width w, length 2w, so 2(w + 2w) = 36 and w = 6. Area = 6 × 12 = 72 cm².
+
+- question: Which of these is the largest?
+  choices: ["0.6", "5/8", "3/5", "0.59"]
+  answer: B
+  explanation: 5/8 = 0.625, which is bigger than 0.6 (= 3/5) and 0.59.
+
+# A numeric question (no choices): answered with the number keypad.
+- question: Mia is 4 years older than Ben. In 6 years their ages will add up to 40. How old is Ben now?
+  answer: 12
+  explanation: Now their ages add to 40 − 12 = 28. Ben + (Ben + 4) = 28, so Ben is 12.

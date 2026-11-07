@@ -1,0 +1,37 @@
+# Thinking Skills
+
+- question: |
+    All the children in the chess club also play soccer.
+    Some children who play soccer also swim.
+    Sam is in the chess club.
+    Which statement must be true?
+  choices:
+    - Sam swims.
+    - Sam plays soccer.
+    - Sam does not swim.
+    - Everyone who plays soccer is in the chess club.
+  answer: B
+  explanation: Everyone in chess club plays soccer, so Sam must. Nothing tells us whether Sam swims.
+
+- question: |
+    Four friends ran a race.
+    Ava finished before Ben. Ben finished before Dan. Chloe finished after Dan.
+    Who finished last?
+  choices: [Ava, Ben, Chloe, Dan]
+  answer: C
+  explanation: The order is Ava, Ben, Dan, Chloe.
+
+- question: "What number comes next? 2, 6, 12, 20, 30, ?"
+  choices: ["40", "42", "44", "48"]
+  answer: B
+  explanation: The gaps go up by 2 each time (4, 6, 8, 10), so the next gap is 12. 30 + 12 = 42.
+
+- question: |
+    Lily: "If it rains, the school picnic will be cancelled."
+    The picnic was cancelled.
+    Jack: "So it must have rained."
+    Priya: "It might have been cancelled for a different reason."
+    Whose reasoning is correct?
+  choices: [Jack only, Priya only, Both Jack and Priya, Neither]
+  answer: B
+  explanation: Rain would cancel the picnic, but something else could have cancelled it too. Jack can't be sure.
