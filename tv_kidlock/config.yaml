@@ -1,5 +1,5 @@
 name: TV Kid Lock
-version: "1.2.0"
+version: "1.2.1"
 slug: tv_kidlock
 description: Locks the Samsung TV after a set watch time until a quiz is answered
 arch:

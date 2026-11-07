@@ -1,3 +1,6 @@
+## 1.2.1
+- Parent page: "Run TV diagnostics" button (device info, app status, app-launch and key tests).
+
 ## 1.2.0
 - Support 2020+ Samsung TVs: uses the "Internet" app ID (3202010022079) and relies on the browser homepage being the quiz page, since these TVs ignore the URL in launch requests.
 

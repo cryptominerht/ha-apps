@@ -749,6 +749,50 @@ def pair_loop(ctl: "Controller"):
         check_block_apps(ctl)
 
 
+def run_diagnostics(ctl: "Controller"):
+    """Log what this TV supports, to choose how to show the quiz."""
+    tv = ctl.tv
+    log.info("===== TV diagnostics (TV must be on) =====")
+    log.info("TV %s port %s, pairing token saved: %s", tv.host, tv.port, Path(tv.token_file).exists())
+    try:
+        d = tv._ws(timeout=4).rest_device_info().get("device", {})
+        log.info("Device: %s | %s | OS %s | power %s | token auth %s | developer mode %s",
+                 d.get("modelName"), d.get("name"), d.get("OS"), d.get("PowerState"),
+                 d.get("TokenAuthSupport"), d.get("developerMode"))
+    except Exception as e:  # noqa: BLE001
+        log.info("Device info failed: %r", e)
+    for app_id in ["3202010022079", "org.tizen.browser", "111299001912"]:
+        try:
+            st = tv._ws(timeout=4).rest_app_status(app_id)
+            log.info("REST status %s -> %s", app_id, json.dumps(st)[:200])
+        except Exception as e:  # noqa: BLE001
+            log.info("REST status %s failed: %r", app_id, e)
+    log.info("Test 1: launching YouTube over WebSocket - watch the TV...")
+    try:
+        t = tv._ws(timeout=6)
+        t.run_app("111299001912", "DEEP_LINK", "")
+        log.info("  sent OK")
+        t.close()
+    except Exception as e:  # noqa: BLE001
+        log.info("  failed: %r", e)
+    time.sleep(10)
+    log.info("Test 2: launching YouTube over REST...")
+    try:
+        log.info("  -> %s", json.dumps(tv._ws(timeout=4).rest_app_run("111299001912"))[:200])
+    except Exception as e:  # noqa: BLE001
+        log.info("  failed: %r", e)
+    time.sleep(10)
+    log.info("Test 3: sending HOME key...")
+    try:
+        t = tv._ws(timeout=6)
+        t.send_key("KEY_HOME")
+        log.info("  sent OK")
+        t.close()
+    except Exception as e:  # noqa: BLE001
+        log.info("  failed: %r", e)
+    log.info("===== end of diagnostics: please note what the TV did after tests 1, 2 and 3 =====")
+
+
 # Known IDs for common streaming apps (they differ between model years/regions)
 APP_CANDIDATES = {
     "YouTube": ["111299001912"],
@@ -842,6 +886,8 @@ def build_app(ctl: Controller) -> Flask:
             threading.Thread(target=ctl.unlock, args=("parent PIN",), daemon=True).start()
         elif act == "lock":
             threading.Thread(target=ctl.lock, daemon=True).start()
+        elif act == "diag":
+            threading.Thread(target=run_diagnostics, args=(ctl,), daemon=True).start()
         elif act == "test":
             log.info("Parent page: test - opening the quiz page on the TV (no lock, no block)")
             threading.Thread(target=ctl.tv.open_browser, args=(ctl.cfg["quiz_url"],),
@@ -871,7 +917,8 @@ TV IP {e(ctl.tv.host)} · last quiz check-in:
 {e(ctl.last_status_from[0]) + ', ' + str(int(time.time() - ctl.last_status_from[1])) + ' s ago' if ctl.last_status_from[1] else 'never'}</small></p>
 <form method=post><input type=hidden name=pin value="{pin}">
 <button name=do value=unlock>Unlock now</button><button name=do value=lock>Quiz now</button>
-<button name=do value=test>Test: show quiz page on TV</button></form>
+<button name=do value=test>Test: show quiz page on TV</button>
+<button name=do value=diag>Run TV diagnostics</button></form>
 <p><small>Test opens the quiz page in the TV browser without locking or blocking internet.
 Within ~10 s the TV should show it, and "last quiz check-in" below should name the TV.</small></p>
 {f'<h3 class=err>Question file problems</h3><ul class=err>{er}</ul>' if er else ''}
