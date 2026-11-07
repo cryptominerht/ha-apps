@@ -1,5 +1,5 @@
 name: TV Kid Lock
-version: "1.0.0"
+version: "1.0.1"
 slug: tv_kidlock
 description: Locks the Samsung TV after a set watch time until a quiz is answered
 arch:
@@ -13,4 +13,4 @@ homeassistant_api: true     # talks to HA without a long-lived token
 map:
   - type: addon_config      # settings, questions and results live here
     read_only: false
-webui: "http://[HOST]:5000/parent"
+webui: "http://[HOST]:[PORT:5000]/parent"
