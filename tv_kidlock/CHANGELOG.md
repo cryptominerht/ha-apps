@@ -1,3 +1,6 @@
+## 1.1.2
+- Fix: if the TV browser was already open (e.g. video playing in it), the quiz never loaded. The browser is now closed first and reopened on the quiz page.
+
 ## 1.1.1
 - Logs when the quiz page is loaded and by which device; explains why after 3 failed tries.
 - Backs off to one browser reopen every 2 minutes instead of every ~20 s.

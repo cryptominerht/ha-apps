@@ -146,7 +146,26 @@ class TV:
     def key(self, k: str):
         self._do(f"key {k}", lambda tv: tv.send_key(k))
 
+    BROWSER = "org.tizen.browser"
+
     def open_browser(self, url: str):
+        # If the browser is already running (e.g. he was watching video in it),
+        # a launch request just brings the old tab back instead of loading the
+        # quiz. So close it first, then open it fresh on the quiz page.
+        if not self.dry_run:
+            ws = self._ws(timeout=3)
+            try:
+                running = bool(ws.rest_app_status(self.BROWSER).get("running"))
+            except Exception:  # noqa: BLE001  some models don't report it
+                running = None
+            if running is not False:
+                try:
+                    ws.rest_app_close(self.BROWSER)
+                    if running:
+                        log.info("Browser was already open - closed it so the quiz opens fresh")
+                    time.sleep(2)
+                except Exception as e:  # noqa: BLE001
+                    log.debug("browser close: %s", e)
         self._do(f"browser {url}", lambda tv: tv.open_browser(url))
 
     def run_app(self, app_id: str):
