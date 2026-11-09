@@ -1,3 +1,6 @@
+## 1.2.3
+- After opening the browser, also send the quiz address as a deep link (may remove the need to set the homepage).
+
 ## 1.2.2
 - 2020+ TVs: launch the browser over REST (the WebSocket launch is ignored); log whether it came on screen.
 

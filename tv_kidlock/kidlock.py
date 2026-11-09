@@ -205,6 +205,11 @@ class TV:
             if not st.get("visible"):
                 log.info("Browser didn't come up - retrying via WebSocket")
                 self._do("browser native", lambda tv: tv.run_app(bid, "NATIVE_LAUNCH", url))
+            else:
+                # Browser is up. Also try handing it the address as a deep link; if the
+                # TV honours it, the homepage setting isn't needed. Harmless if ignored.
+                self._do("browser deep link", lambda tv: tv.run_app(bid, "DEEP_LINK", url))
+                log.info("Sent quiz address to the browser as a deep link")
         except Exception:  # noqa: BLE001
             pass
 
