@@ -73,6 +73,9 @@ def apply_app_options(cfg: dict):
     put("home_assistant", "block_when", o.get("block_when"))
     put("home_assistant", "enable_entity", o.get("enable_entity"))
     put("quiz", "correct_to_unlock", o.get("correct_to_unlock"))
+    put(None, "internet_block", o.get("internet_block"))
+    if o.get("close_app_after_escapes") is not None:
+        cfg["close_app_after_escapes"] = o["close_app_after_escapes"]
     if o.get("categories") is not None:
         cfg.setdefault("quiz", {})["categories"] = o.get("categories") or []
     if not o.get("quiz_url") and cfg.get("tv", {}).get("host"):
@@ -212,6 +215,25 @@ class TV:
                 log.info("Sent quiz address to the browser as a deep link")
         except Exception:  # noqa: BLE001
             pass
+
+    def browser_visible(self) -> bool:
+        if self.dry_run:
+            return False
+        try:
+            return bool(self._ws(timeout=3).rest_app_status(self.browser_id()).get("visible"))
+        except Exception:  # noqa: BLE001
+            return False
+
+    def resume_app(self, app_id: str):
+        """Bring a background app back to the front (keeps its place if the TV
+        still has it in memory). REST launch works on 2020+ TVs."""
+        if self.dry_run:
+            log.info("[dry-run] TV resume %s", app_id)
+            return
+        try:
+            self._ws(timeout=4).rest_app_run(app_id)
+        except Exception:  # noqa: BLE001
+            self.run_app(app_id)
 
     def run_app(self, app_id: str):
         self._do(f"run {app_id}", lambda tv: tv.run_app(app_id))
@@ -494,6 +516,8 @@ class State:
     cooldown_until: float = 0.0
     last_on: float = 0.0
     resume_app: str = ""
+    blocked: bool = False      # internet currently blocked by us
+    escapes: int = 0           # times he left the quiz during this lock
     unlocked_at: float = 0.0
     log: list = field(default_factory=list)
 
@@ -540,12 +564,42 @@ class Controller:
             self.s.correct_streak = 0
             self.s.wrong_count = 0
             self.s.q = self.bank.next()
+            self.s.escapes = 0
             self.s.resume_app = next((aid for aid in self.apps if self.tv.app_visible(aid)), "")
+            if self.s.resume_app:
+                log.info("He was watching %s - it stays paused in the background",
+                         self.apps[self.s.resume_app])
+            elif self.tv.browser_visible():
+                log.info("He was watching in the TV browser - the browser has to restart "
+                         "for the quiz, so that video can't keep its place")
             self._save()
         self.tv.key("KEY_PAUSE")
-        self.ha.block_internet()
         time.sleep(1)
+        if self.block_mode == "always":
+            self._block()
         self._show_quiz()
+
+    @property
+    def block_mode(self) -> str:
+        # escape (default): cut internet only if he leaves the quiz
+        # always: cut it as soon as the quiz starts.  never: don't cut it
+        return str(self.cfg.get("internet_block", "escape")).lower()
+
+    def _block(self):
+        if self.block_mode == "never" or self.s.blocked:
+            return
+        self.s.blocked = True
+        self._save()
+        self.ha.block_internet()
+
+    def _escaped(self, how: str):
+        """He left the quiz. Escalate: pause, cut internet, and after repeated
+        escapes close the app (which loses his place)."""
+        self.s.escapes += 1
+        self._save()
+        log.info("Left the quiz (%s) - escape %d this lock", how, self.s.escapes)
+        self.tv.key("KEY_PAUSE")
+        self._block()
 
     def unlock(self, reason: str):
         with self.lk:
@@ -558,11 +612,16 @@ class Controller:
             self.s.log = (self.s.log + [{"t": time.strftime("%Y-%m-%d %H:%M"),
                                          "how": reason}])[-50:]
             resume = self.s.resume_app
+            was_blocked = self.s.blocked
+            self.s.blocked = False
+            self.s.escapes = 0
             self._save()
-        self.ha.allow_internet()
+        if was_blocked or self.block_mode == "always":
+            self.ha.allow_internet()
         if resume and self.cfg.get("resume_app_on_unlock", True):
             time.sleep(3)  # let the success screen show
-            self.tv.run_app(resume)
+            log.info("Bringing %s back to the front", self.apps.get(resume, resume))
+            self.tv.resume_app(resume)
 
     def _show_quiz(self):
         self.last_browser_open = time.time()
@@ -581,10 +640,11 @@ class Controller:
 
     # ------------------------------------------------------------ loop ---
     def run(self):
-        if self.s.locked:  # re-assert after a restart
-            self.ha.block_internet()
+        if self.s.locked and (self.s.blocked or self.block_mode == "always"):
+            self.ha.block_internet()   # re-assert after a restart
         else:
-            self.ha.allow_internet()  # never leave the TV blocked by accident
+            self.s.blocked = False
+            self.ha.allow_internet()   # never leave the TV blocked by accident
         poll = self.cfg.get("poll_seconds", 15)
         enforce = self.cfg.get("enforce_seconds", 3)
         idle_reset = self.cfg.get("idle_reset_minutes", 30) * 60
@@ -626,11 +686,16 @@ class Controller:
             time.sleep(1)
 
     def _enforce(self, now: float):
-        # Kid switched back to a streaming app -> close it, reshow quiz
+        # He switched back to a streaming app. First times: pause it, cut the
+        # internet and bring the quiz back (his app keeps its place in the
+        # background). After repeated escapes, close the app.
+        close_after = int(self.cfg.get("close_app_after_escapes", 3))
         for app_id, name in self.apps.items():
             if self.tv.app_visible(app_id):
-                log.info("%s came to front while locked - closing", name)
-                self.tv.close_app(app_id)
+                self._escaped(f"went back to {name}")
+                if close_after and self.s.escapes >= close_after:
+                    log.info("Closing %s after %d escapes", name, self.s.escapes)
+                    self.tv.close_app(app_id)
                 self._show_quiz()
                 return
         # Quiz page stopped polling (browser closed / HDMI / live TV) -> reshow.
@@ -642,7 +707,10 @@ class Controller:
             log.info("Quiz not on screen - reopening (attempt %d)", self.reopens_unseen)
             if self.reopens_unseen == 3:
                 self._diagnose()
-            self.tv.key("KEY_PAUSE")
+            if self.page_loads:      # quiz was showing before, so he left it
+                self._escaped("quiz page closed or input switched")
+            else:
+                self.tv.key("KEY_PAUSE")
             self._show_quiz()
         self._publish("locked")
 

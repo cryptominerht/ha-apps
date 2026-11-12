@@ -1,3 +1,11 @@
+## 1.3.0
+- Gentler lock that keeps his place: his app is paused and left in the background
+  while the quiz shows, then brought back to the front after he answers.
+- Internet is cut only if he leaves the quiz (new setting "When to cut the TV's internet").
+- His app is closed only after repeated escapes (new setting, default 3).
+- Note: video playing inside the TV browser can't keep its place, because the browser
+  must restart to show the quiz.
+
 ## 1.2.4
 - Fix: "Not quite" screen got stuck on the TV browser (pointer mode sends a click, not the OK key). Added a Next question button, click-anywhere, and a 15 s auto-advance.
 

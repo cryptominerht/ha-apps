@@ -18,6 +18,12 @@ configuration:
     name: Minutes of TV before a quiz
   correct_to_unlock:
     name: Correct answers in a row to unlock
+  internet_block:
+    name: When to cut the TV's internet
+    description: "escape = only if he leaves the quiz (keeps his video's place). always = as soon as the quiz starts. never = don't."
+  close_app_after_escapes:
+    name: Close his app after this many escapes
+    description: If he keeps going back to YouTube/Netflix during a quiz, close it (it then loses his place). 0 = never close.
   categories:
     name: Subjects to ask
     description: Question file names to use, e.g. maths, thinking, reading. Empty = all.

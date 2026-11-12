@@ -6,7 +6,9 @@ idle_reset_minutes: 30       # TV off this long -> allowance resets
 poll_seconds: 15             # how often to check the TV is on
 enforce_seconds: 3           # how often to check while locked
 heartbeat_timeout: 20        # quiz page silent this long -> reopen it
-resume_app_on_unlock: true   # relaunch the app he was watching
+resume_app_on_unlock: true   # bring his app back to the front after the quiz
+internet_block: escape       # escape = only if he leaves the quiz; always; never
+close_app_after_escapes: 3   # close his app if he keeps going back to it (0 = never)
 dry_run: false               # true = log actions instead of sending them
 
 data_dir: data               # TV pairing token, state, results
