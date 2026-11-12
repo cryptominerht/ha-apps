@@ -47,7 +47,10 @@
   .review h2 { font-size: 4vw; color: #ff6b6b; margin: 0 0 1.5vw; }
   .review .ans { font-size: 3.2vw; color: #7ae582; margin-bottom: 1.5vw; }
   .review .exp { font-size: 2.2vw; line-height: 1.45; opacity: .9; }
-  .review .next { margin-top: 3vw; font-size: 2vw; color: #ffd166; }
+  .review .next { margin-top: 3vw; font-size: 3vw; font-weight: 700; padding: 1.2vw 4vw;
+    border: .3vw solid #fff; border-radius: 1.4vw; background: #ffd166; color: #10233f;
+    font-family: inherit; cursor: pointer; }
+  .review .auto { margin-top: 1.4vw; font-size: 1.6vw; opacity: .7; }
   .done .big { font-size: 7vw; } .done p { font-size: 2.6vw; opacity: .85; }
 </style>
 </head>
@@ -72,11 +75,12 @@
 </div>
 
 <div id="review" class="screen hidden">
-  <div class="review">
+  <div class="review" id="reviewBox">
     <h2>Not quite</h2>
     <div class="ans" id="revAns"></div>
     <div class="exp" id="revExp"></div>
-    <div class="next">Press OK for the next question</div>
+    <button class="next" id="nextBtn">Next question &#9654;</button>
+    <div class="auto" id="revAuto"></div>
   </div>
 </div>
 
@@ -141,7 +145,7 @@ function pick(letter) { if (!busy && cooldown <= 0) submit(letter); }
 
 document.addEventListener('keydown', function (e) {
   var c = e.keyCode, handled = true;
-  if (mode === 'review') { if (c === 13) { reviewing = false; qid = ''; poll(); } else handled = false; }
+  if (mode === 'review') { if (c === 13) nextQuestion(); else handled = false; }
   else if (mode === 'choice') {
     if (c === 38) setFocus(focus - 1);
     else if (c === 40) setFocus(focus + 1);
@@ -210,7 +214,7 @@ function submit(value) {
     if (!r) { msg('Connection problem - try again', 'bad'); return; }
     if (r.result === 'correct') msg('Correct! ⭐', 'ok');
     else if (r.result === 'wrong' && r.correct) {
-      reviewing = true; mode = 'review'; screen('review');
+      reviewing = true; mode = 'review'; screen('review'); startReviewTimer();
       $('revAns').textContent = 'The answer is ' + r.correct;
       $('revExp').textContent = r.explanation || '';
       return;
@@ -219,6 +223,34 @@ function submit(value) {
     poll();
   });
 }
+
+// Leaving the "Not quite" screen. The TV browser usually works in pointer mode,
+// where OK is a mouse click rather than a key press, so the button, a click
+// anywhere on the screen, the OK key, and a timeout all move on.
+var reviewTimer = null, reviewLeft = 0, reviewShownAt = 0;
+function nextQuestion() {
+  if (!reviewing) return;
+  if (new Date().getTime() - reviewShownAt < 1500) return;  // ignore the click that answered
+  reviewing = false; qid = '';
+  if (reviewTimer) { clearInterval(reviewTimer); reviewTimer = null; }
+  $('revAuto').textContent = '';
+  poll();
+}
+function startReviewTimer() {
+  reviewShownAt = new Date().getTime();
+  reviewLeft = 15;
+  if (reviewTimer) clearInterval(reviewTimer);
+  $('revAuto').textContent = 'Next question in ' + reviewLeft + ' s';
+  try { $('nextBtn').focus(); } catch (e) {}
+  reviewTimer = setInterval(function () {
+    reviewLeft--;
+    if (reviewLeft <= 0) { reviewShownAt = 0; nextQuestion(); }
+    else $('revAuto').textContent = 'Next question in ' + reviewLeft + ' s';
+  }, 1000);
+}
+$('nextBtn').onclick = function (e) { if (e && e.stopPropagation) e.stopPropagation(); nextQuestion(); };
+$('reviewBox').onclick = function () { nextQuestion(); };
+$('review').onclick = function () { nextQuestion(); };
 
 // Polling doubles as the heartbeat that tells the server the quiz is on screen.
 function poll() { xhr('GET', 'status', null, render); }

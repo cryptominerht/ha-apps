@@ -1,3 +1,6 @@
+## 1.2.4
+- Fix: "Not quite" screen got stuck on the TV browser (pointer mode sends a click, not the OK key). Added a Next question button, click-anywhere, and a 15 s auto-advance.
+
 ## 1.2.3
 - After opening the browser, also send the quiz address as a deep link (may remove the need to set the homepage).
 
